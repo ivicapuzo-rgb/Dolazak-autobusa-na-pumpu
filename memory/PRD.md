@@ -1,0 +1,36 @@
+# PRD — Dolazak autobusa na pumpu (Fuel Pump Bus Tracker)
+
+## Original problem statement
+Android aplikacija za evidenciju dolaska autobusa na pumpu za točenje goriva (nafte). Početni ekran sa ilustracijom autobusa i natpisom "Dolazak autobusa na pumpu", ukupan broj autobusa u popisu ("kom"), promenjiv datum iz kalendara. Kartice: STIGLO / ČEKA SE (koliko treba da dođe) / NE DOLAZI (isključeni). Formular za unos: broj autobusa, automatsko vreme dolaska, mesto sipanja 1-8, i opcija "autobus ne dolazi". Lista sa filterima: Stigli (redom po opadajućem vremenu), Koji fale, Koji ne dolaze. Admin panel zaključan lozinkom "puzopb" sa izveštajem i PDF (A4) eksportom koji se čuva na telefonu. Mogućnost dodavanja vanrednog autobusa (garažni broj van spiska). Spisak: Solaris + BMC.
+
+## User choices
+- Data: local only (offline, na telefonu)
+- Design: refreshed modern (iOS-Native Clean, plava/navy tema)
+- Time: automatski trenutno vreme pri evidentiranju
+- PDF: sve (stigli + koji fale + koji ne dolaze) za datum
+- Slika: generička ilustracija autobusa
+
+## Architecture
+- Expo Router (file-based), 3 bottom tabs: Danas / Autobusi / Izveštaj
+- Fully client-side; persistence via `@/src/utils/storage` (AsyncStorage), keys `pumpa_buses_v1`, `pumpa_records_v1`
+- State: `src/data/DataContext.tsx` (buses, records-by-date, selectedDate, stats, selectors)
+- Seed manifest: `src/data/seed.ts` (Solaris + BMC = 185 buses, exactly per user list)
+- PDF: `src/utils/pdf.ts` (expo-print A4 HTML + expo-sharing)
+- Theme: `src/theme.ts` from `design_guidelines.json`
+- No backend used.
+
+## Persona
+Operater na pumpi — brz unos napolju, veliki tap-targeti, čitljivi brojevi.
+
+## Implemented (2026-06)
+- Home: total kom badge, date bar (arrows + native calendar), 3 stat cards, entry form (garažni broj, mesto 1-8, auto vreme), sticky EVIDENTIRAJ DOLAZAK + NE DOLAZI, vanredni auto-add
+- Autobusi: segmented Stigli/Čekaju/Ne dolaze sa brojačima, search, Stigli sortirani po opadajućem vremenu, revert (Vrati), "Dodaj vanredno" modal
+- Izveštaj: password gate ("puzopb"), stat cards, sekcije (Stigli po vremenu, Koji fale, Ne dolaze), PDF (A4) izvoz na telefonu, reset dana, zaključaj
+- Toasts, haptics, offline persistence — tested (iteration_1, all pass)
+
+## Backlog
+- P1: PDF izvoz koji automatski čuva fajl sa imenom (datum) u Downloads/Documents
+- P1: Dnevni pregled više dana / istorija i izvoz opsega datuma
+- P2: Statistika po mestima sipanja (koje mesto najviše korišćeno)
+- P2: Zaključaj admin trajno (PIN u secure store) i promena lozinke
+- P2: Dark mode

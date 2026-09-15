@@ -1,0 +1,142 @@
+{
+  "app_name": "Autobus Dolazak (Fleet Tracker)",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "A high-visibility, rapid-entry utility tracker designed for outdoor logistics operators with maximum contrast, large touch targets, and clear action states.",
+  "color": {
+    "surface": "#F8FAFC",
+    "onSurface": "#0F172A",
+    "surfaceSecondary": "#FFFFFF",
+    "onSurfaceSecondary": "#1E293B",
+    "surfaceTertiary": "#F1F5F9",
+    "onSurfaceTertiary": "#334155",
+    "surfaceInverse": "#0F172A",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#1E3A8A",
+    "brandPrimary": "#1E3A8A",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#3B82F6",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#DBEAFE",
+    "onBrandTertiary": "#1E3A8A",
+    "success": "#16A34A",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#DC2626",
+    "onError": "#FFFFFF",
+    "info": "#64748B",
+    "onInfo": "#FFFFFF",
+    "border": "#E2E8F0",
+    "borderStrong": "#94A3B8",
+    "divider": "#F1F5F9",
+    "muted": "#64748B"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 48
+    }
+  },
+  "spacing": {
+    "rule": "Generous hit targets for outdoor gloves/fast tapping. Minimum 56pt height for inputs.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": ["Fallback to solid surfaceSecondary due to utility focus and potential low-end rugged devices."],
+    "dont's": ["Avoid glassmorphism on dense data screens to prioritize readability in outdoor lighting."]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Danas (Home)",
+      "purpose": "Log arriving buses rapidly, display daily progress stats, and manage fuel pump allocation.",
+      "states": {
+        "loading": "Centered brand primary spinner.",
+        "empty": "N/A - the date always has a baseline total of buses.",
+        "error": "Failed to load bus manifest. Big retry button."
+      },
+      "layout": "Scrollable View with Sticky Bottom CTA.\n1. Header: Date picker with left/right arrows, clearly showing today's date and total buses (e.g. '186 kom').\n2. Hero Card: Contains the Solaris U18 illustration, 'Dolazak autobusa na pumpu' title, and a background subtle gradient (brandTertiary to surfaceSecondary).\n3. Stat Cards Row (Horizontal Scroll or Grid): 3 prominent cards -> 'STIGLO' (Success/Green dot), 'ČEKA SE' (Info/Gray dot), 'NE DOLAZI' (Error/Red dot). Numbers should be at 3xl scale (48pt).\n4. Entry Form Section: Input for 'Garažni broj autobusa' (large, numpad keyboard). Time captures automatically behind the scenes. Chip selector for pump spots 1-8.\n5. Sticky Bottom Action: Huge primary button 'EVIDENTIRAJ DOLAZAK' pinned above home indicator. Secondary text button below it for 'Označi da NE DOLAZI'."
+    },
+    {
+      "name": "Autobusi (List)",
+      "purpose": "Filter and search the daily manifest of buses by their current status.",
+      "states": {
+        "loading": "Skeleton list rows.",
+        "empty": "Empty clipboard illustration. 'Nema autobusa u ovoj kategoriji.'",
+        "error": "Error loading list. Retry button."
+      },
+      "layout": "1. Sticky Header Segmented Control: Stigli | Čekaju | Ne dolaze.\n2. Optional Search bar below it.\n3. FlatList: Bus cards displaying Garage Number, Time (if arrived), Pump Spot. 'Stigli' ordered by time descending. Use the dot legend on each row.\n4. Floating Action Button (FAB) or Sticky Bottom Button to 'Dodaj vanredno' (add unlisted bus)."
+    },
+    {
+      "name": "Izveštaj (Admin)",
+      "purpose": "Password-protected area to view daily summary and export to PDF.",
+      "states": {
+        "loading": "N/A",
+        "empty": "Empty state before unlock.",
+        "error": "Incorrect PIN/Password prompt."
+      },
+      "layout": "1. If locked: Full screen centered PIN pad or password input with large digits.\n2. If unlocked: Summary table of the day, total fuel given (if applicable), and a massive 'Export to PDF (A4)' CTA button anchored at the bottom."
+    }
+  ],
+  "images": {
+    "home_hero_bus": {
+      "url": "https://images.unsplash.com/photo-1617727553220-ab21c48259c6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBhcnRpY3VsYXRlZCUyMGNpdHklMjBidXMlMjBpbGx1c3RyYXRpb258ZW58MHx8fHwxNzg5NTA3MDI1fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Orange modern articulated bus used as hero illustration"
+    },
+    "empty_state_clipboard": {
+      "url": "https://images.unsplash.com/photo-1651760680066-db9d32bd0357?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHwxfHxjbGlwYm9hcmQlMjBlbXB0eSUyMHN0YXRlJTIwVUl8ZW58MHx8fHwxNzg5NTA3MDM3fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Empty clipboard representing no records found"
+    }
+  },
+  "haptics": {
+    "events": {
+      "button_press": "impactLight",
+      "pump_spot_select": "selection",
+      "tab_change": "selection",
+      "status_change": "impactMedium",
+      "submit_success": "notificationSuccess",
+      "submit_error": "notificationError"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Follow the iOS-Native Clean layout using rounded white cards (surfaceSecondary) on a slightly off-white background (surface).",
+    "Use standard semantic dots mapping exactly to the brief: Green (#16A34A) for Stiglo, Gray (#64748B) for Ceka se, Red (#DC2626) for Ne dolazi.",
+    "Form must be highly functional for outdoor use: inputs must have min 56pt height, large typography.",
+    "The 'Dolazak' form should auto-capture current time upon submission, meaning no time-picker is required for standard entry.",
+    "Ensure 'EVIDENTIRAJ DOLAZAK' is a sticky bottom button inside a KeyboardAvoidingView so it's always reachable by thumb.",
+    "Do NOT use glassmorphism on this app. Fall back to solid backgrounds for performance and outdoor readability."
+  ]
+}

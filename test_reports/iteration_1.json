@@ -1,0 +1,31 @@
+{
+  "summary": "Frontend-only Expo web preview testing of Serbian bus-arrivals-at-pump app. Verified all critical flows on mobile viewport (390x844): Home tab (185 kom badge, stat cards, entry with garage number+spot+evidentiraj, empty-broj validation toast, no-spot validation toast, NE DOLAZI flow, vanredni hint on non-listed number, kom badge increments to 186), Autobusi tab (segmented control counts, Stigli list contains recorded bus with time/mesto, search filter by broj, revert-<broj> moves bus back to čekanje, Dodaj vanredno modal adds new bus), Izveštaj tab (locked by default, wrong password shows 'Pogrešna lozinka' toast, correct 'puzopb' unlocks admin panel with sections, btn-reset opens reset-modal and clears day, admin-lock-btn re-locks), and AsyncStorage persistence across page reload. PDF export on web triggers the wrapped try/catch and shows 'Greška pri izradi PDF-a' toast without crashing the app (acceptable per requirements since expo-print is native-only). No red screens, no navigation crashes, no runtime errors. Only console warnings are RN Web deprecation notices ('shadow*' style, props.pointerEvents, useNativeDriver) that come from third-party libs, not project code.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Izveštaj", "issues": ["PDF export on web preview shows an error toast ('Greška pri izradi PDF-a') because expo-print/expo-sharing are native-only. Handler is safely wrapped in try/catch, so no crash. Consider distinguishing 'unsupported on web' from a real error, e.g. use Platform.OS check and show info toast 'PDF izvoz je dostupan samo na uređaju'."]}
+    ],
+    "react_native_issues": [
+      {"component": "react-native-web deprecations", "issue": "Console warnings: '\"shadow*\" style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents'. Origin appears to be inside RN/RN-Web internals, not app code — informational only."},
+      {"component": "Animated / useNativeDriver", "issue": "Warning: 'useNativeDriver is not supported because the native animated module is missing. Falling back to JS-based animation.' Emitted on web; harmless but worth suppressing if any project animation sets useNativeDriver:true on web."}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: on web, guard exportReportPdf with Platform.OS !== 'web' and show an info toast instead of error toast to give clearer UX.",
+    "Optional: audit any custom Animated usages to avoid useNativeDriver:true on web to remove the console warning."
+  ],
+  "critical_code_review_comments": [
+    "DataContext.tsx: setStatus auto-adds unknown broj as {marka:'Vanredno'} which is good; addVanredni is also exposed for the modal. Consistent and correct.",
+    "izvestaj.tsx: ADMIN_PASS 'puzopb' is hard-coded in source. For a device-only app this is acceptable per spec, but be aware the string is readable in the JS bundle.",
+    "pdf.ts: exportReportPdf does not check Platform.OS === 'web'. On web, expo-print rejects, so the caller shows a generic error toast. Consider a web branch that opens a printable window (window.print with new tab HTML) for parity."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100% of listed flows passed; PDF export behaves as designed on web (toast, no crash)"},
+  "seed_data_creation": "None. App seeds 185 buses (115 Solaris + 70 BMC) from src/data/seed.ts on first load.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Public URL: EXPO_PUBLIC_BACKEND_URL from /app/frontend/.env. Admin password 'puzopb'. Data stored in AsyncStorage keys pumpa_buses_v1 / pumpa_records_v1. Test flow tip: switching tabs via page.get_by_text('Autobusi', exact=True).first.click(force=True) works; testIDs for date bar are date-prev/date-next/date-label/date-open-picker (there are two DateBar mounts on some screens hence duplicate testIDs). PDF export on web deliberately throws inside expo-print; caller catches and toasts 'Greška pri izradi PDF-a' — do not treat as bug."
+}
