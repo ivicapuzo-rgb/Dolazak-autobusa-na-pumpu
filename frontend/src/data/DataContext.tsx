@@ -36,7 +36,12 @@ interface DataCtxValue {
   dayRecords: Record<string, Zapis>;
   stats: DayStats;
   addVanredni: (broj: string) => boolean; // false if already exists
-  setStatus: (broj: string, status: Status, mesto?: number | null) => void;
+  setStatus: (
+    broj: string,
+    status: Status,
+    mesto?: number | null,
+    napomena?: string | null,
+  ) => void;
   clearStatus: (broj: string) => void;
   resetDate: () => void;
   hasBus: (broj: string) => boolean;
@@ -112,7 +117,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const setStatus = useCallback(
-    (broj: string, status: Status, mesto: number | null = null) => {
+    (
+      broj: string,
+      status: Status,
+      mesto: number | null = null,
+      napomena: string | null = null,
+    ) => {
       const trimmed = broj.trim();
       if (!trimmed) return;
       // auto-add unlisted buses so they are tracked like the rest
@@ -126,6 +136,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         status,
         vreme: status === "stigao" ? dayjs().format("HH:mm") : null,
         mesto: status === "stigao" ? mesto : null,
+        napomena: napomena && napomena.trim() ? napomena.trim() : null,
         ts: Date.now(),
       };
       setRecords((prev) => {
@@ -253,4 +264,73 @@ export function dayCounts(
     neDolazi,
     cekaSe: Math.max(buses.length - stiglo - neDolazi, 0),
   };
+}
+
+// History of a single bus over the last `days` days (newest first).
+export function busHistory(
+  records: RecordsByDate,
+  broj: string,
+  days = 7,
+): { datum: string; zapis: Zapis }[] {
+  const t = broj.trim();
+  if (!t) return [];
+  const out: { datum: string; zapis: Zapis }[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = dayjs().subtract(i, "day").format("YYYY-MM-DD");
+    const z = records[d]?.[t];
+    if (z) out.push({ datum: d, zapis: z });
+  }
+  return out;
+}
+
+export interface WeekTotal {
+  weekStart: string;
+  weekEnd: string;
+  stiglo: number;
+  neDolazi: number;
+}
+
+// Totals grouped by ISO-ish week (Monday start), newest week first.
+export function weeklyTotals(records: RecordsByDate): WeekTotal[] {
+  const map = new Map<string, { stiglo: number; neDolazi: number }>();
+  Object.keys(records).forEach((d) => {
+    const day = records[d];
+    if (!day) return;
+    const vals = Object.values(day);
+    const s = vals.filter((z) => z.status === "stigao").length;
+    const n = vals.filter((z) => z.status === "ne_dolazi").length;
+    if (s === 0 && n === 0) return;
+    const dj = dayjs(d);
+    const offset = (dj.day() + 6) % 7; // Monday-based
+    const ws = dj.subtract(offset, "day").format("YYYY-MM-DD");
+    const cur = map.get(ws) ?? { stiglo: 0, neDolazi: 0 };
+    cur.stiglo += s;
+    cur.neDolazi += n;
+    map.set(ws, cur);
+  });
+  return [...map.entries()]
+    .map(([weekStart, v]) => ({
+      weekStart,
+      weekEnd: dayjs(weekStart).add(6, "day").format("YYYY-MM-DD"),
+      stiglo: v.stiglo,
+      neDolazi: v.neDolazi,
+    }))
+    .sort((a, b) => (a.weekStart < b.weekStart ? 1 : -1));
+}
+
+// Days with the most arrivals, highest first.
+export function busiestDays(
+  records: RecordsByDate,
+  top = 5,
+): { datum: string; stiglo: number }[] {
+  return Object.keys(records)
+    .map((d) => ({
+      datum: d,
+      stiglo: Object.values(records[d] ?? {}).filter(
+        (z) => z.status === "stigao",
+      ).length,
+    }))
+    .filter((x) => x.stiglo > 0)
+    .sort((a, b) => b.stiglo - a.stiglo)
+    .slice(0, top);
 }

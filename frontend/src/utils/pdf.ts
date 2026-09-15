@@ -51,7 +51,7 @@ function dayReportBody(
           bus.marka,
         )}</td><td>${esc(zapis.vreme ?? "")}</td><td>${
           zapis.mesto ?? ""
-        }</td></tr>`,
+        }</td><td>${esc(zapis.napomena ?? "")}</td></tr>`,
     )
     .join("");
 
@@ -73,7 +73,7 @@ function dayReportBody(
   <h2>Stigli — redom po vremenu (${stigli.length})</h2>
   ${
     stigli.length
-      ? `<table><thead><tr><th>#</th><th>Broj</th><th>Marka</th><th>Vreme</th><th>Mesto</th></tr></thead><tbody>${stigliRows}</tbody></table>`
+      ? `<table><thead><tr><th>#</th><th>Broj</th><th>Marka</th><th>Vreme</th><th>Mesto</th><th>Napomena</th></tr></thead><tbody>${stigliRows}</tbody></table>`
       : `<div class="empty">Nijedan autobus nije evidentiran.</div>`
   }
 
@@ -270,4 +270,94 @@ export async function savePeriodPdf(
     to,
   ).format("DD-MM-YYYY")}`;
   return finalizePdf(html, fileName);
+}
+
+// Always open the OS share sheet (Viber, e-mail, WhatsApp, Files…).
+async function sharePdf(html: string, fileName: string): Promise<SaveResult> {
+  const { uri } = await Print.printToFileAsync({ html });
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(uri, {
+      mimeType: "application/pdf",
+      UTI: "com.adobe.pdf",
+      dialogTitle: fileName,
+    });
+    return { status: "shared", name: `${fileName}.pdf` };
+  }
+  return { status: "cancelled", name: `${fileName}.pdf` };
+}
+
+export async function shareReportPdf(
+  datum: string,
+  buses: Bus[],
+  day: Record<string, Zapis>,
+): Promise<SaveResult> {
+  const html = buildReportHtml(datum, buses, day);
+  return sharePdf(html, `Izvestaj_${dayjs(datum).format("DD-MM-YYYY")}`);
+}
+
+export async function sharePeriodPdf(
+  from: string,
+  to: string,
+  buses: Bus[],
+  records: RecordsByDate,
+): Promise<SaveResult> {
+  const html = buildPeriodHtml(from, to, buses, records);
+  const fileName = `Izvestaj_${dayjs(from).format("DD-MM-YYYY")}_do_${dayjs(
+    to,
+  ).format("DD-MM-YYYY")}`;
+  return sharePdf(html, fileName);
+}
+
+// --- Single bus history (last N days) -------------------------------------
+
+export function buildBusHistoryHtml(
+  broj: string,
+  hist: { datum: string; zapis: Zapis }[],
+  days: number,
+): string {
+  const stigloDana = hist.filter((h) => h.zapis.status === "stigao").length;
+  const rows = hist.length
+    ? hist
+        .map((h) => {
+          const z = h.zapis;
+          const stat =
+            z.status === "stigao"
+              ? `<span class="g">Stigao</span>`
+              : `<span class="r">Ne dolazi</span>`;
+          return `<tr><td class="b">${dayjs(h.datum).format(
+            "DD.MM.YYYY.",
+          )}</td><td>${stat}</td><td>${esc(z.vreme ?? "-")}</td><td>${
+            z.mesto ?? "-"
+          }</td><td>${esc(z.napomena ?? "")}</td></tr>`;
+        })
+        .join("")
+    : "";
+  return `<!DOCTYPE html><html><head><meta charset="utf-8" /><style>${STYLE}</style></head>
+<body>
+  <h1>Autobus ${esc(broj)} — poslednjih ${days} dana</h1>
+  <div class="sub">Dolazaka (sipanja): ${stigloDana} / ${days} dana</div>
+  ${
+    hist.length
+      ? `<table><thead><tr><th>Datum</th><th>Status</th><th>Vreme</th><th>Mesto</th><th>Napomena</th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<div class="empty">Nema evidencije za ovaj autobus u poslednjih ${days} dana.</div>`
+  }
+</body></html>`;
+}
+
+export async function shareBusHistoryPdf(
+  broj: string,
+  hist: { datum: string; zapis: Zapis }[],
+  days: number,
+): Promise<SaveResult> {
+  const html = buildBusHistoryHtml(broj, hist, days);
+  return sharePdf(html, `Autobus_${broj}_${days}dana`);
+}
+
+export async function saveBusHistoryPdf(
+  broj: string,
+  hist: { datum: string; zapis: Zapis }[],
+  days: number,
+): Promise<SaveResult> {
+  const html = buildBusHistoryHtml(broj, hist, days);
+  return finalizePdf(html, `Autobus_${broj}_${days}dana`);
 }

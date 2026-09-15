@@ -99,10 +99,17 @@ export default function AutobusiScreen() {
     <View style={styles.row} testID={`bus-row-${item.bus.broj}`}>
       <View style={[styles.rowDot, { backgroundColor: dotColor }]} />
       <View style={styles.rowMain}>
-        <Text style={styles.rowBroj}>{item.bus.broj}</Text>
-        <View style={styles.markaBadge}>
-          <Text style={styles.markaText}>{item.bus.marka}</Text>
+        <View style={styles.rowMainTop}>
+          <Text style={styles.rowBroj}>{item.bus.broj}</Text>
+          <View style={styles.markaBadge}>
+            <Text style={styles.markaText}>{item.bus.marka}</Text>
+          </View>
         </View>
+        {item.zapis?.napomena ? (
+          <Text style={styles.rowNote} numberOfLines={1}>
+            📝 {item.zapis.napomena}
+          </Text>
+        ) : null}
       </View>
       {tab === "stigli" && item.zapis && (
         <Text style={styles.rowMeta}>
@@ -315,8 +322,10 @@ const useStyles = makeStyles((colors) => ({
     paddingHorizontal: spacing.lg,
   },
   rowDot: { width: 12, height: 12, borderRadius: 999 },
-  rowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  rowMain: { flex: 1, gap: 4 },
+  rowMainTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   rowBroj: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
+  rowNote: { fontSize: 12, fontWeight: "600", color: colors.muted },
   markaBadge: {
     backgroundColor: colors.surfaceTertiary,
     borderRadius: radius.sm,

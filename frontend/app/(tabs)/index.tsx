@@ -20,6 +20,7 @@ const HERO_IMG =
   "https://images.unsplash.com/photo-1617727553220-ab21c48259c6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBhcnRpY3VsYXRlZCUyMGNpdHklMjBidXMlMjBpbGx1c3RyYXRpb258ZW58MHx8fHwxNzg5NTA3MDI1fDA&ixlib=rb-4.1.0&q=85";
 
 const SPOTS = [1, 2, 3, 4, 5, 6, 7, 8];
+const NOTE_CHIPS = ["Kasnio", "Kvar", "Van reda", "OK"];
 
 export default function DanasScreen() {
   const styles = useStyles();
@@ -30,6 +31,7 @@ export default function DanasScreen() {
 
   const [broj, setBroj] = useState("");
   const [mesto, setMesto] = useState<number | null>(null);
+  const [napomena, setNapomena] = useState("");
 
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
   const trimmed = broj.trim();
@@ -47,6 +49,7 @@ export default function DanasScreen() {
   const resetForm = () => {
     setBroj("");
     setMesto(null);
+    setNapomena("");
   };
 
   const handleDolazak = () => {
@@ -60,7 +63,7 @@ export default function DanasScreen() {
       toast.show("Izaberi mesto sipanja (1–8)", "error");
       return;
     }
-    setStatus(trimmed, "stigao", mesto);
+    setStatus(trimmed, "stigao", mesto, napomena);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     toast.show(
       `${trimmed} evidentiran • ${dayjs().format("HH:mm")} • mesto ${mesto}`,
@@ -75,7 +78,7 @@ export default function DanasScreen() {
       toast.show("Unesi broj autobusa", "error");
       return;
     }
-    setStatus(trimmed, "ne_dolazi");
+    setStatus(trimmed, "ne_dolazi", null, napomena);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     toast.show(`${trimmed} označen: NE DOLAZI`, "info");
     resetForm();
@@ -188,6 +191,44 @@ export default function DanasScreen() {
               );
             })}
           </View>
+
+          <Text style={[styles.label, { marginTop: spacing.lg }]}>
+            Napomena (opciono)
+          </Text>
+          <View style={styles.noteChipsRow}>
+            {NOTE_CHIPS.map((c) => {
+              const active = napomena === c;
+              return (
+                <Pressable
+                  key={c}
+                  testID={`note-chip-${c}`}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setNapomena(active ? "" : c);
+                  }}
+                  style={[styles.noteChip, active && styles.noteChipActive]}
+                >
+                  <Text
+                    style={[
+                      styles.noteChipText,
+                      active && styles.noteChipTextActive,
+                    ]}
+                  >
+                    {c}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <TextInput
+            testID="input-napomena"
+            style={styles.noteInput}
+            value={napomena}
+            onChangeText={setNapomena}
+            placeholder="npr. kasnio 10 min"
+            placeholderTextColor={colors.muted}
+            maxLength={40}
+          />
 
           <Text style={styles.timeNote}>
             🕒 Vreme dolaska se evidentira automatski.
@@ -338,6 +379,39 @@ const useStyles = makeStyles((colors) => ({
   },
   spotText: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
   spotTextActive: { color: colors.onBrandPrimary },
+  noteChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  noteChip: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  noteChipActive: {
+    backgroundColor: colors.brandTertiary,
+    borderColor: colors.brandPrimary,
+  },
+  noteChipText: { fontSize: 14, fontWeight: "700", color: colors.onSurfaceTertiary },
+  noteChipTextActive: { color: colors.brandPrimary },
+  noteInput: {
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.onSurface,
+  },
   timeNote: {
     marginTop: spacing.lg,
     fontSize: 12,

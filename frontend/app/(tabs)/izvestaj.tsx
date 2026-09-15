@@ -8,6 +8,8 @@ import {
   DownloadSimple,
   Lock,
   LockOpen,
+  MagnifyingGlass,
+  ShareNetwork,
   Trash,
 } from "phosphor-react-native";
 import React, { useMemo, useState } from "react";
@@ -26,6 +28,8 @@ import { DateBar } from "@/src/components/DateBar";
 import { StatCard } from "@/src/components/StatCard";
 import { useToast } from "@/src/components/Toast";
 import {
+  busHistory,
+  busiestDays,
   cekajuList,
   datesWithRecords,
   dayCounts,
@@ -33,10 +37,18 @@ import {
   spotCounts,
   stigliByTimeDesc,
   useData,
+  weeklyTotals,
 } from "@/src/data/DataContext";
 import { usesNativeTabs } from "@/src/navigation";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { savePeriodPdf, saveReportPdf } from "@/src/utils/pdf";
+import {
+  saveBusHistoryPdf,
+  savePeriodPdf,
+  saveReportPdf,
+  shareBusHistoryPdf,
+  sharePeriodPdf,
+  shareReportPdf,
+} from "@/src/utils/pdf";
 
 const ADMIN_PASS = "puzopb";
 
@@ -57,6 +69,11 @@ export default function IzvestajScreen() {
   const [showFrom, setShowFrom] = useState(false);
   const [showTo, setShowTo] = useState(false);
   const [exportingPeriod, setExportingPeriod] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [busQuery, setBusQuery] = useState("");
+  const [busSubmitted, setBusSubmitted] = useState("");
+  const [busPdfBusy, setBusPdfBusy] = useState(false);
+  const BUS_DAYS = 7;
 
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
 
@@ -72,6 +89,16 @@ export default function IzvestajScreen() {
   const spots = useMemo(() => spotCounts(dayRecords), [dayRecords]);
   const spotMax = useMemo(() => Math.max(1, ...spots.slice(1)), [spots]);
   const history = useMemo(() => datesWithRecords(records), [records]);
+  const weeks = useMemo(() => weeklyTotals(records), [records]);
+  const topDays = useMemo(() => busiestDays(records, 5), [records]);
+  const busHist = useMemo(
+    () => (busSubmitted ? busHistory(records, busSubmitted, BUS_DAYS) : []),
+    [records, busSubmitted],
+  );
+  const busStiglo = useMemo(
+    () => busHist.filter((h) => h.zapis.status === "stigao").length,
+    [busHist],
+  );
 
   const tryUnlock = () => {
     if (pass === ADMIN_PASS) {
@@ -126,6 +153,72 @@ export default function IzvestajScreen() {
       toast.show("Greška pri izradi PDF-a", "error");
     } finally {
       setExportingPeriod(false);
+    }
+  };
+
+  const handleShareDaily = async () => {
+    if (Platform.OS === "web") {
+      toast.show("Deljenje je dostupno na telefonu", "info");
+      return;
+    }
+    try {
+      setSharing(true);
+      await shareReportPdf(selectedDate, buses, dayRecords);
+    } catch {
+      toast.show("Greška pri deljenju", "error");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleSharePeriod = async () => {
+    if (Platform.OS === "web") {
+      toast.show("Deljenje je dostupno na telefonu", "info");
+      return;
+    }
+    if (dayjs(fromDate).isAfter(dayjs(toDate))) {
+      toast.show("Datum 'Od' je posle datuma 'Do'", "error");
+      return;
+    }
+    try {
+      setExportingPeriod(true);
+      await sharePeriodPdf(fromDate, toDate, buses, records);
+    } catch {
+      toast.show("Greška pri deljenju", "error");
+    } finally {
+      setExportingPeriod(false);
+    }
+  };
+
+  const handleBusShow = () => {
+    const t = busQuery.trim();
+    setBusSubmitted(t);
+    Haptics.selectionAsync();
+    if (t && busHistory(records, t, BUS_DAYS).length === 0) {
+      toast.show("Nema dolazaka za ovaj autobus (7 dana)", "info");
+    }
+  };
+
+  const handleBusPdf = async (share: boolean) => {
+    if (!busSubmitted) {
+      toast.show("Prvo unesi broj autobusa", "error");
+      return;
+    }
+    if (Platform.OS === "web") {
+      toast.show("PDF je dostupan na telefonu", "info");
+      return;
+    }
+    try {
+      setBusPdfBusy(true);
+      const res = share
+        ? await shareBusHistoryPdf(busSubmitted, busHist, BUS_DAYS)
+        : await saveBusHistoryPdf(busSubmitted, busHist, BUS_DAYS);
+      if (res.status === "saved")
+        toast.show(`Sačuvano: ${res.name}`, "success");
+    } catch {
+      toast.show("Greška pri izradi PDF-a", "error");
+    } finally {
+      setBusPdfBusy(false);
     }
   };
 
@@ -209,6 +302,7 @@ export default function IzvestajScreen() {
                 <Text style={styles.repBroj}>{bus.broj}</Text>
                 <Text style={styles.repMeta}>
                   {zapis.vreme} / mesto {zapis.mesto}
+                  {zapis.napomena ? ` • ${zapis.napomena}` : ""}
                 </Text>
               </View>
             ))
@@ -245,6 +339,53 @@ export default function IzvestajScreen() {
                 </View>
               );
             })
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeadRow}>
+            <ChartBar size={18} color={colors.brandPrimary} weight="fill" />
+            <Text style={styles.sectionTitle}>Nedeljni pregled</Text>
+          </View>
+          {weeks.length === 0 ? (
+            <Text style={styles.emptyText}>Nema podataka po nedeljama.</Text>
+          ) : (
+            <>
+              {weeks.slice(0, 6).map((w) => (
+                <View
+                  key={w.weekStart}
+                  style={styles.weekRow}
+                  testID={`week-${w.weekStart}`}
+                >
+                  <Text style={styles.weekLabel}>
+                    {dayjs(w.weekStart).format("DD.MM.")} –{" "}
+                    {dayjs(w.weekEnd).format("DD.MM.")}
+                  </Text>
+                  <View style={styles.weekCounts}>
+                    <Text style={[styles.weekC, { color: colors.success }]}>
+                      {w.stiglo} sipalo
+                    </Text>
+                    <Text style={[styles.weekC, { color: colors.error }]}>
+                      {w.neDolazi} ne
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              {topDays.length > 0 && (
+                <View style={styles.topDaysWrap}>
+                  <Text style={styles.topDaysTitle}>Najprometniji dani</Text>
+                  {topDays.map((d, i) => (
+                    <View key={d.datum} style={styles.topDayRow}>
+                      <Text style={styles.topDayRank}>{i + 1}.</Text>
+                      <Text style={styles.topDayDate}>
+                        {dayjs(d.datum).format("DD.MM.YYYY.")}
+                      </Text>
+                      <Text style={styles.topDayVal}>{d.stiglo} sipalo</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -287,20 +428,39 @@ export default function IzvestajScreen() {
           )}
         </View>
 
-        <Pressable
-          testID="btn-export-pdf"
-          onPress={handleExport}
-          disabled={exporting}
-          style={({ pressed }) => [
-            styles.pdfBtn,
-            (pressed || exporting) && { opacity: 0.7 },
-          ]}
-        >
-          <DownloadSimple size={22} color={colors.onBrandPrimary} weight="bold" />
-          <Text style={styles.pdfText}>
-            {exporting ? "Priprema…" : "Izvezi PDF (A4)"}
-          </Text>
-        </Pressable>
+        <View style={styles.pdfRow}>
+          <Pressable
+            testID="btn-export-pdf"
+            onPress={handleExport}
+            disabled={exporting}
+            style={({ pressed }) => [
+              styles.pdfBtn,
+              { flex: 1 },
+              (pressed || exporting) && { opacity: 0.7 },
+            ]}
+          >
+            <DownloadSimple
+              size={20}
+              color={colors.onBrandPrimary}
+              weight="bold"
+            />
+            <Text style={styles.pdfText}>
+              {exporting ? "Priprema…" : "Sačuvaj PDF"}
+            </Text>
+          </Pressable>
+          <Pressable
+            testID="btn-share-pdf"
+            onPress={handleShareDaily}
+            disabled={sharing}
+            style={({ pressed }) => [
+              styles.shareBtn,
+              (pressed || sharing) && { opacity: 0.7 },
+            ]}
+          >
+            <ShareNetwork size={20} color={colors.brandPrimary} weight="bold" />
+            <Text style={styles.shareBtnText}>Podeli</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeadRow}>
@@ -329,20 +489,39 @@ export default function IzvestajScreen() {
               </Text>
             </Pressable>
           </View>
-          <Pressable
-            testID="btn-export-period"
-            onPress={handlePeriodExport}
-            disabled={exportingPeriod}
-            style={({ pressed }) => [
-              styles.periodBtn,
-              (pressed || exportingPeriod) && { opacity: 0.7 },
-            ]}
-          >
-            <DownloadSimple size={18} color={colors.onBrandPrimary} weight="bold" />
-            <Text style={styles.periodBtnText}>
-              {exportingPeriod ? "Priprema…" : "Izvezi period (PDF)"}
-            </Text>
-          </Pressable>
+          <View style={styles.pdfRow}>
+            <Pressable
+              testID="btn-export-period"
+              onPress={handlePeriodExport}
+              disabled={exportingPeriod}
+              style={({ pressed }) => [
+                styles.periodBtn,
+                { flex: 1 },
+                (pressed || exportingPeriod) && { opacity: 0.7 },
+              ]}
+            >
+              <DownloadSimple
+                size={18}
+                color={colors.onBrandPrimary}
+                weight="bold"
+              />
+              <Text style={styles.periodBtnText}>
+                {exportingPeriod ? "Priprema…" : "Sačuvaj period"}
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="btn-share-period"
+              onPress={handleSharePeriod}
+              disabled={exportingPeriod}
+              style={({ pressed }) => [
+                styles.sharePeriodBtn,
+                (pressed || exportingPeriod) && { opacity: 0.7 },
+              ]}
+            >
+              <ShareNetwork size={18} color={colors.brandPrimary} weight="bold" />
+              <Text style={styles.shareBtnText}>Podeli</Text>
+            </Pressable>
+          </View>
           {showFrom && (
             <DateTimePicker
               value={new Date(fromDate)}
@@ -420,6 +599,110 @@ export default function IzvestajScreen() {
                 </Pressable>
               );
             })
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeadRow}>
+            <MagnifyingGlass size={18} color={colors.brandPrimary} weight="bold" />
+            <Text style={styles.sectionTitle}>Pregled po autobusu (7 dana)</Text>
+          </View>
+          <View style={styles.busLookupRow}>
+            <TextInput
+              testID="bus-lookup-input"
+              style={styles.busLookupInput}
+              value={busQuery}
+              onChangeText={setBusQuery}
+              placeholder="Broj autobusa"
+              placeholderTextColor={colors.muted}
+              keyboardType="number-pad"
+              onSubmitEditing={handleBusShow}
+              returnKeyType="search"
+              maxLength={8}
+            />
+            <Pressable
+              testID="bus-lookup-show"
+              onPress={handleBusShow}
+              style={({ pressed }) => [
+                styles.busShowBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={styles.busShowText}>Prikaži</Text>
+            </Pressable>
+          </View>
+
+          {busSubmitted !== "" && (
+            <>
+              <Text style={styles.busSummary} testID="bus-summary">
+                Autobus {busSubmitted}: {busStiglo} dolazaka u 7 dana
+              </Text>
+              {busHist.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  Nema evidencije u poslednjih 7 dana.
+                </Text>
+              ) : (
+                busHist.map((h) => (
+                  <View
+                    key={h.datum}
+                    style={styles.busHistRow}
+                    testID={`bus-hist-${h.datum}`}
+                  >
+                    <Text style={styles.busHistDate}>
+                      {dayjs(h.datum).format("DD.MM.")}
+                    </Text>
+                    {h.zapis.status === "stigao" ? (
+                      <Text style={styles.busHistMeta}>
+                        {h.zapis.vreme} / mesto {h.zapis.mesto}
+                        {h.zapis.napomena ? ` • ${h.zapis.napomena}` : ""}
+                      </Text>
+                    ) : (
+                      <Text style={[styles.busHistMeta, { color: colors.error }]}>
+                        Ne dolazi
+                        {h.zapis.napomena ? ` • ${h.zapis.napomena}` : ""}
+                      </Text>
+                    )}
+                  </View>
+                ))
+              )}
+              {busHist.length > 0 && (
+                <View style={[styles.pdfRow, { marginTop: spacing.md }]}>
+                  <Pressable
+                    testID="bus-save-pdf"
+                    onPress={() => handleBusPdf(false)}
+                    disabled={busPdfBusy}
+                    style={({ pressed }) => [
+                      styles.periodBtn,
+                      { flex: 1, marginTop: 0 },
+                      (pressed || busPdfBusy) && { opacity: 0.7 },
+                    ]}
+                  >
+                    <DownloadSimple
+                      size={18}
+                      color={colors.onBrandPrimary}
+                      weight="bold"
+                    />
+                    <Text style={styles.periodBtnText}>Izdaj PDF</Text>
+                  </Pressable>
+                  <Pressable
+                    testID="bus-share-pdf"
+                    onPress={() => handleBusPdf(true)}
+                    disabled={busPdfBusy}
+                    style={({ pressed }) => [
+                      styles.sharePeriodBtn,
+                      (pressed || busPdfBusy) && { opacity: 0.7 },
+                    ]}
+                  >
+                    <ShareNetwork
+                      size={18}
+                      color={colors.brandPrimary}
+                      weight="bold"
+                    />
+                    <Text style={styles.shareBtnText}>Podeli</Text>
+                  </Pressable>
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -669,6 +952,97 @@ const useStyles = makeStyles((colors) => ({
     gap: spacing.sm,
   },
   pdfText: { color: colors.onBrandPrimary, fontSize: 17, fontWeight: "800" },
+  pdfRow: { flexDirection: "row", gap: spacing.sm, alignItems: "stretch" },
+  shareBtn: {
+    height: 58,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.brandPrimary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  sharePeriodBtn: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.brandPrimary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  shareBtnText: { color: colors.brandPrimary, fontSize: 15, fontWeight: "800" },
+  weekRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  weekLabel: { fontSize: 14, fontWeight: "700", color: colors.onSurface },
+  weekCounts: { flexDirection: "row", gap: spacing.md },
+  weekC: { fontSize: 13, fontWeight: "800" },
+  topDaysWrap: { marginTop: spacing.md },
+  topDaysTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.muted,
+    marginBottom: spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  topDayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: 5,
+  },
+  topDayRank: { width: 22, fontSize: 14, fontWeight: "800", color: colors.brandPrimary },
+  topDayDate: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.onSurface },
+  topDayVal: { fontSize: 13, fontWeight: "800", color: colors.success },
+  busLookupRow: { flexDirection: "row", gap: spacing.sm },
+  busLookupInput: {
+    flex: 1,
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.onSurface,
+  },
+  busShowBtn: {
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
+    backgroundColor: colors.brandPrimary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  busShowText: { color: colors.onBrandPrimary, fontSize: 15, fontWeight: "800" },
+  busSummary: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.brandPrimary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  busHistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  busHistDate: { width: 60, fontSize: 15, fontWeight: "800", color: colors.onSurface },
+  busHistMeta: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.onSurfaceTertiary },
   resetBtn: {
     height: 50,
     borderRadius: radius.md,

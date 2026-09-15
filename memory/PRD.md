@@ -34,6 +34,12 @@ Operater na pumpi — brz unos napolju, veliki tap-targeti, čitljivi brojevi.
 - Istorija po danima: lista svih dana sa evidencijom (stiglo/čeka/ne dolazi), tap postavlja izabrani dan.
 - Izvoz izveštaja za period: Od/Do datumi + PDF sa svim danima u opsegu (`Izvestaj_..._do_....pdf`).
 
+## Implemented — update 2026-06 (v3)
+- Deljenje PDF-a: dugme "Podeli" (Sharing share sheet → Viber, mejl, WhatsApp…) uz dnevni izveštaj i uz period.
+- Napomena uz autobus: opciono polje + brze opcije (Kasnio / Kvar / Van reda / OK) na unosu; prikazuje se u listi, izveštaju i PDF-u.
+- Nedeljni pregled: zbir po nedeljama (Mon-based) + "Najprometniji dani" (top 5 po broju sipanja).
+- Pregled po autobusu (7 dana): pretraga po garažnom broju → prikaz datuma/vremena/mesta/napomene za poslednjih 7 dana, sa "Izdaj PDF" (sačuvaj) i "Podeli".
+
 ## Backlog
 - P1: PDF izvoz koji automatski čuva fajl sa imenom (datum) u Downloads/Documents
 - P1: Dnevni pregled više dana / istorija i izvoz opsega datuma
