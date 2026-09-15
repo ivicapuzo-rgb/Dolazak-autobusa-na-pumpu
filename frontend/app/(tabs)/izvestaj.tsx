@@ -31,6 +31,7 @@ import {
   busHistory,
   busiestDays,
   cekajuList,
+  dailyArrivalSeries,
   datesWithRecords,
   dayCounts,
   neDolazeList,
@@ -45,9 +46,11 @@ import {
   saveBusHistoryPdf,
   savePeriodPdf,
   saveReportPdf,
+  saveWeeklyPdf,
   shareBusHistoryPdf,
   sharePeriodPdf,
   shareReportPdf,
+  shareWeeklyPdf,
 } from "@/src/utils/pdf";
 
 const ADMIN_PASS = "puzopb";
@@ -73,6 +76,7 @@ export default function IzvestajScreen() {
   const [busQuery, setBusQuery] = useState("");
   const [busSubmitted, setBusSubmitted] = useState("");
   const [busPdfBusy, setBusPdfBusy] = useState(false);
+  const [weeklyBusy, setWeeklyBusy] = useState(false);
   const BUS_DAYS = 7;
 
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
@@ -91,6 +95,11 @@ export default function IzvestajScreen() {
   const history = useMemo(() => datesWithRecords(records), [records]);
   const weeks = useMemo(() => weeklyTotals(records), [records]);
   const topDays = useMemo(() => busiestDays(records, 5), [records]);
+  const series = useMemo(() => dailyArrivalSeries(records, 14), [records]);
+  const seriesMax = useMemo(
+    () => Math.max(1, ...series.map((s) => s.stiglo)),
+    [series],
+  );
   const busHist = useMemo(
     () => (busSubmitted ? busHistory(records, busSubmitted, BUS_DAYS) : []),
     [records, busSubmitted],
@@ -219,6 +228,25 @@ export default function IzvestajScreen() {
       toast.show("Greška pri izradi PDF-a", "error");
     } finally {
       setBusPdfBusy(false);
+    }
+  };
+
+  const handleWeeklyPdf = async (share: boolean) => {
+    if (Platform.OS === "web") {
+      toast.show("PDF je dostupan na telefonu", "info");
+      return;
+    }
+    try {
+      setWeeklyBusy(true);
+      const res = share
+        ? await shareWeeklyPdf(weeks, topDays, series)
+        : await saveWeeklyPdf(weeks, topDays, series);
+      if (res.status === "saved")
+        toast.show(`Sačuvano: ${res.name}`, "success");
+    } catch {
+      toast.show("Greška pri izradi PDF-a", "error");
+    } finally {
+      setWeeklyBusy(false);
     }
   };
 
@@ -386,6 +414,81 @@ export default function IzvestajScreen() {
                 </View>
               )}
             </>
+          )}
+        </View>
+
+        {weeks.length > 0 && (
+          <View style={styles.pdfRow}>
+            <Pressable
+              testID="btn-weekly-pdf"
+              onPress={() => handleWeeklyPdf(false)}
+              disabled={weeklyBusy}
+              style={({ pressed }) => [
+                styles.pdfBtn,
+                { flex: 1 },
+                (pressed || weeklyBusy) && { opacity: 0.7 },
+              ]}
+            >
+              <DownloadSimple
+                size={20}
+                color={colors.onBrandPrimary}
+                weight="bold"
+              />
+              <Text style={styles.pdfText}>Nedeljni PDF</Text>
+            </Pressable>
+            <Pressable
+              testID="btn-weekly-share"
+              onPress={() => handleWeeklyPdf(true)}
+              disabled={weeklyBusy}
+              style={({ pressed }) => [
+                styles.shareBtn,
+                (pressed || weeklyBusy) && { opacity: 0.7 },
+              ]}
+            >
+              <ShareNetwork size={20} color={colors.brandPrimary} weight="bold" />
+              <Text style={styles.shareBtnText}>Podeli</Text>
+            </Pressable>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeadRow}>
+            <ChartBar size={18} color={colors.brandPrimary} weight="fill" />
+            <Text style={styles.sectionTitle}>
+              Grafikon po danima (14 dana)
+            </Text>
+          </View>
+          {series.every((s) => s.stiglo === 0) ? (
+            <Text style={styles.emptyText}>
+              Još nema sipanja u poslednjih 14 dana.
+            </Text>
+          ) : (
+            <View style={styles.chartArea} testID="daily-chart">
+              {series.map((s) => {
+                const h = 8 + Math.round((s.stiglo / seriesMax) * 96);
+                const isTop = s.stiglo === seriesMax && s.stiglo > 0;
+                const isToday = s.datum === dayjs().format("YYYY-MM-DD");
+                return (
+                  <View key={s.datum} style={styles.chartCol}>
+                    <Text style={styles.chartVal}>
+                      {s.stiglo > 0 ? s.stiglo : ""}
+                    </Text>
+                    <View
+                      style={[
+                        styles.chartBar,
+                        { height: h },
+                        isTop && styles.chartBarTop,
+                      ]}
+                    />
+                    <Text
+                      style={[styles.chartLabel, isToday && styles.chartLabelToday]}
+                    >
+                      {dayjs(s.datum).format("DD")}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
           )}
         </View>
 
@@ -1043,6 +1146,35 @@ const useStyles = makeStyles((colors) => ({
   },
   busHistDate: { width: 60, fontSize: 15, fontWeight: "800", color: colors.onSurface },
   busHistMeta: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.onSurfaceTertiary },
+  chartArea: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    height: 150,
+    paddingTop: spacing.sm,
+  },
+  chartCol: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
+  chartVal: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: colors.muted,
+    marginBottom: 2,
+    height: 14,
+  },
+  chartBar: {
+    width: 14,
+    borderTopLeftRadius: radius.sm,
+    borderTopRightRadius: radius.sm,
+    backgroundColor: colors.brandSecondary,
+  },
+  chartBarTop: { backgroundColor: colors.brandPrimary },
+  chartLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.muted,
+    marginTop: 4,
+  },
+  chartLabelToday: { color: colors.brandPrimary, fontWeight: "800" },
   resetBtn: {
     height: 50,
     borderRadius: radius.md,

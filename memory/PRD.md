@@ -40,6 +40,10 @@ Operater na pumpi — brz unos napolju, veliki tap-targeti, čitljivi brojevi.
 - Nedeljni pregled: zbir po nedeljama (Mon-based) + "Najprometniji dani" (top 5 po broju sipanja).
 - Pregled po autobusu (7 dana): pretraga po garažnom broju → prikaz datuma/vremena/mesta/napomene za poslednjih 7 dana, sa "Izdaj PDF" (sačuvaj) i "Podeli".
 
+## Implemented — update 2026-06 (v4)
+- Nedeljni PDF: dugmad "Nedeljni PDF" (sačuvaj) i "Podeli" u sekciji Nedeljni pregled — poseban PDF sa zbirom po nedeljama, najprometnijim danima i sipanjima po danima.
+- Grafikon po danima (14 dana): stubičasti grafikon u Izveštaju koji pokazuje broj sipanja po danu, sa istaknutim najprometnijim danom i današnjim datumom.
+
 ## Backlog
 - P1: PDF izvoz koji automatski čuva fajl sa imenom (datum) u Downloads/Documents
 - P1: Dnevni pregled više dana / istorija i izvoz opsega datuma

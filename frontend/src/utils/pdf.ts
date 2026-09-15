@@ -361,3 +361,91 @@ export async function saveBusHistoryPdf(
   const html = buildBusHistoryHtml(broj, hist, days);
   return finalizePdf(html, `Autobus_${broj}_${days}dana`);
 }
+
+// --- Weekly summary -------------------------------------------------------
+
+export interface WeekRow {
+  weekStart: string;
+  weekEnd: string;
+  stiglo: number;
+  neDolazi: number;
+}
+
+export function buildWeeklyHtml(
+  weeks: WeekRow[],
+  topDays: { datum: string; stiglo: number }[],
+  series: { datum: string; stiglo: number }[],
+): string {
+  const weekRows = weeks
+    .map(
+      (w) =>
+        `<tr><td class="b">${dayjs(w.weekStart).format(
+          "DD.MM.",
+        )} – ${dayjs(w.weekEnd).format("DD.MM.YYYY.")}</td><td class="g">${
+          w.stiglo
+        }</td><td class="r">${w.neDolazi}</td></tr>`,
+    )
+    .join("");
+
+  const topRows = topDays
+    .map(
+      (d, i) =>
+        `<tr><td>${i + 1}</td><td class="b">${dayjs(d.datum).format(
+          "DD.MM.YYYY.",
+        )}</td><td>${d.stiglo}</td></tr>`,
+    )
+    .join("");
+
+  const maxS = Math.max(1, ...series.map((s) => s.stiglo));
+  const bars = series
+    .map((s) => {
+      const w = Math.round((s.stiglo / maxS) * 100);
+      return `<div class="barrow"><span class="barlabel">${dayjs(s.datum).format(
+        "DD.MM",
+      )}</span><span class="bartrack"><span class="barfill" style="width:${w}%"></span></span><span class="barval">${
+        s.stiglo
+      }</span></div>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8" /><style>${STYLE}</style></head>
+<body>
+  <h1>Nedeljni pregled</h1>
+  <div class="sub">Generisano: ${dayjs().format("DD.MM.YYYY. HH:mm")}</div>
+
+  <h2>Zbir po nedeljama</h2>
+  ${
+    weeks.length
+      ? `<table><thead><tr><th>Nedelja</th><th>Sipalo</th><th>Ne dolazi</th></tr></thead><tbody>${weekRows}</tbody></table>`
+      : `<div class="empty">Nema podataka po nedeljama.</div>`
+  }
+
+  <h2>Najprometniji dani</h2>
+  ${
+    topDays.length
+      ? `<table><thead><tr><th>#</th><th>Datum</th><th>Sipalo</th></tr></thead><tbody>${topRows}</tbody></table>`
+      : `<div class="empty">Nema podataka.</div>`
+  }
+
+  <h2>Sipanja po danima (poslednjih ${series.length} dana)</h2>
+  ${bars}
+</body></html>`;
+}
+
+export async function saveWeeklyPdf(
+  weeks: WeekRow[],
+  topDays: { datum: string; stiglo: number }[],
+  series: { datum: string; stiglo: number }[],
+): Promise<SaveResult> {
+  const html = buildWeeklyHtml(weeks, topDays, series);
+  return finalizePdf(html, `Nedeljni_pregled_${dayjs().format("DD-MM-YYYY")}`);
+}
+
+export async function shareWeeklyPdf(
+  weeks: WeekRow[],
+  topDays: { datum: string; stiglo: number }[],
+  series: { datum: string; stiglo: number }[],
+): Promise<SaveResult> {
+  const html = buildWeeklyHtml(weeks, topDays, series);
+  return sharePdf(html, `Nedeljni_pregled_${dayjs().format("DD-MM-YYYY")}`);
+}

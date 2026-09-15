@@ -334,3 +334,19 @@ export function busiestDays(
     .sort((a, b) => b.stiglo - a.stiglo)
     .slice(0, top);
 }
+
+// Arrivals (sipanja) per day for the last `days` days, oldest -> newest.
+export function dailyArrivalSeries(
+  records: RecordsByDate,
+  days = 14,
+): { datum: string; stiglo: number }[] {
+  const out: { datum: string; stiglo: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = dayjs().subtract(i, "day").format("YYYY-MM-DD");
+    const stiglo = Object.values(records[d] ?? {}).filter(
+      (z) => z.status === "stigao",
+    ).length;
+    out.push({ datum: d, stiglo });
+  }
+  return out;
+}
