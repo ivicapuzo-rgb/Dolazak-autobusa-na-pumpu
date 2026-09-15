@@ -1,6 +1,10 @@
 import * as Haptics from "expo-haptics";
 import dayjs from "dayjs";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
+  CalendarBlank,
+  ChartBar,
+  ClockCounterClockwise,
   DownloadSimple,
   Lock,
   LockOpen,
@@ -23,13 +27,16 @@ import { StatCard } from "@/src/components/StatCard";
 import { useToast } from "@/src/components/Toast";
 import {
   cekajuList,
+  datesWithRecords,
+  dayCounts,
   neDolazeList,
+  spotCounts,
   stigliByTimeDesc,
   useData,
 } from "@/src/data/DataContext";
 import { usesNativeTabs } from "@/src/navigation";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { exportReportPdf } from "@/src/utils/pdf";
+import { savePeriodPdf, saveReportPdf } from "@/src/utils/pdf";
 
 const ADMIN_PASS = "puzopb";
 
@@ -38,12 +45,18 @@ export default function IzvestajScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { buses, dayRecords, selectedDate, stats, resetDate } = useData();
+  const { buses, dayRecords, selectedDate, setSelectedDate, records, stats, resetDate } =
+    useData();
 
   const [unlocked, setUnlocked] = useState(false);
   const [pass, setPass] = useState("");
   const [exporting, setExporting] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [fromDate, setFromDate] = useState(selectedDate);
+  const [toDate, setToDate] = useState(selectedDate);
+  const [showFrom, setShowFrom] = useState(false);
+  const [showTo, setShowTo] = useState(false);
+  const [exportingPeriod, setExportingPeriod] = useState(false);
 
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
 
@@ -56,6 +69,9 @@ export default function IzvestajScreen() {
     () => neDolazeList(buses, dayRecords),
     [buses, dayRecords],
   );
+  const spots = useMemo(() => spotCounts(dayRecords), [dayRecords]);
+  const spotMax = useMemo(() => Math.max(1, ...spots.slice(1)), [spots]);
+  const history = useMemo(() => datesWithRecords(records), [records]);
 
   const tryUnlock = () => {
     if (pass === ADMIN_PASS) {
@@ -76,12 +92,40 @@ export default function IzvestajScreen() {
     }
     try {
       setExporting(true);
-      await exportReportPdf(selectedDate, buses, dayRecords);
-      toast.show("PDF izveštaj spreman", "success");
+      const res = await saveReportPdf(selectedDate, buses, dayRecords);
+      if (res.status === "saved")
+        toast.show(`Sačuvano u Preuzimanja: ${res.name}`, "success");
+      else if (res.status === "shared")
+        toast.show("PDF spreman za čuvanje", "success");
+      else toast.show("Čuvanje otkazano", "info");
     } catch {
       toast.show("Greška pri izradi PDF-a", "error");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handlePeriodExport = async () => {
+    if (Platform.OS === "web") {
+      toast.show("PDF izvoz je dostupan na telefonu", "info");
+      return;
+    }
+    if (dayjs(fromDate).isAfter(dayjs(toDate))) {
+      toast.show("Datum 'Od' je posle datuma 'Do'", "error");
+      return;
+    }
+    try {
+      setExportingPeriod(true);
+      const res = await savePeriodPdf(fromDate, toDate, buses, records);
+      if (res.status === "saved")
+        toast.show(`Sačuvano u Preuzimanja: ${res.name}`, "success");
+      else if (res.status === "shared")
+        toast.show("PDF za period spreman", "success");
+      else toast.show("Čuvanje otkazano", "info");
+    } catch {
+      toast.show("Greška pri izradi PDF-a", "error");
+    } finally {
+      setExportingPeriod(false);
     }
   };
 
@@ -172,6 +216,39 @@ export default function IzvestajScreen() {
         </View>
 
         <View style={styles.section}>
+          <View style={styles.sectionHeadRow}>
+            <ChartBar size={18} color={colors.brandPrimary} weight="fill" />
+            <Text style={styles.sectionTitle}>Statistika mesta sipanja</Text>
+          </View>
+          {stats.stiglo === 0 ? (
+            <Text style={styles.emptyText}>Još nema sipanja za ovaj dan.</Text>
+          ) : (
+            [1, 2, 3, 4, 5, 6, 7, 8].map((s) => {
+              const c = spots[s];
+              const w = Math.round((c / spotMax) * 100);
+              const isTop = c === spotMax && c > 0;
+              return (
+                <View key={s} style={styles.barRow} testID={`spot-stat-${s}`}>
+                  <Text style={styles.barLabel}>Mesto {s}</Text>
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        { width: `${w}%` },
+                        isTop && styles.barFillTop,
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.barVal, isTop && styles.barValTop]}>
+                    {c}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Koji fale — čekaju ({cekaju.length})
           </Text>
@@ -224,6 +301,127 @@ export default function IzvestajScreen() {
             {exporting ? "Priprema…" : "Izvezi PDF (A4)"}
           </Text>
         </Pressable>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeadRow}>
+            <CalendarBlank size={18} color={colors.brandPrimary} weight="fill" />
+            <Text style={styles.sectionTitle}>Izvezi izveštaj za period</Text>
+          </View>
+          <View style={styles.periodRow}>
+            <Pressable
+              testID="period-from"
+              onPress={() => setShowFrom(true)}
+              style={styles.periodField}
+            >
+              <Text style={styles.periodLabel}>Od</Text>
+              <Text style={styles.periodValue}>
+                {dayjs(fromDate).format("DD.MM.YYYY.")}
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="period-to"
+              onPress={() => setShowTo(true)}
+              style={styles.periodField}
+            >
+              <Text style={styles.periodLabel}>Do</Text>
+              <Text style={styles.periodValue}>
+                {dayjs(toDate).format("DD.MM.YYYY.")}
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable
+            testID="btn-export-period"
+            onPress={handlePeriodExport}
+            disabled={exportingPeriod}
+            style={({ pressed }) => [
+              styles.periodBtn,
+              (pressed || exportingPeriod) && { opacity: 0.7 },
+            ]}
+          >
+            <DownloadSimple size={18} color={colors.onBrandPrimary} weight="bold" />
+            <Text style={styles.periodBtnText}>
+              {exportingPeriod ? "Priprema…" : "Izvezi period (PDF)"}
+            </Text>
+          </Pressable>
+          {showFrom && (
+            <DateTimePicker
+              value={new Date(fromDate)}
+              mode="date"
+              display={Platform.OS === "ios" ? "inline" : "default"}
+              onChange={(e, d) => {
+                setShowFrom(Platform.OS === "ios");
+                if (e.type === "set" && d) {
+                  setFromDate(dayjs(d).format("YYYY-MM-DD"));
+                  if (Platform.OS === "ios") setShowFrom(false);
+                }
+              }}
+            />
+          )}
+          {showTo && (
+            <DateTimePicker
+              value={new Date(toDate)}
+              mode="date"
+              display={Platform.OS === "ios" ? "inline" : "default"}
+              onChange={(e, d) => {
+                setShowTo(Platform.OS === "ios");
+                if (e.type === "set" && d) {
+                  setToDate(dayjs(d).format("YYYY-MM-DD"));
+                  if (Platform.OS === "ios") setShowTo(false);
+                }
+              }}
+            />
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeadRow}>
+            <ClockCounterClockwise
+              size={18}
+              color={colors.brandPrimary}
+              weight="fill"
+            />
+            <Text style={styles.sectionTitle}>Istorija po danima</Text>
+          </View>
+          {history.length === 0 ? (
+            <Text style={styles.emptyText}>Nema zabeleženih dana.</Text>
+          ) : (
+            history.map((d) => {
+              const c = dayCounts(buses, records[d]);
+              const active = d === selectedDate;
+              return (
+                <Pressable
+                  key={d}
+                  testID={`hist-${d}`}
+                  onPress={() => {
+                    setSelectedDate(d);
+                    Haptics.selectionAsync();
+                    toast.show(
+                      `Prikazan dan ${dayjs(d).format("DD.MM.YYYY.")}`,
+                      "info",
+                    );
+                  }}
+                  style={[styles.histRow, active && styles.histRowActive]}
+                >
+                  <Text style={styles.histDate}>
+                    {dayjs(d).format("DD.MM.YYYY.")}
+                    {d === dayjs().format("YYYY-MM-DD") ? "  •  danas" : ""}
+                  </Text>
+                  <View style={styles.histCounts}>
+                    <Text style={[styles.histC, { color: colors.success }]}>
+                      {c.stiglo}
+                    </Text>
+                    <Text style={[styles.histC, { color: colors.muted }]}>
+                      {c.cekaSe}
+                    </Text>
+                    <Text style={[styles.histC, { color: colors.error }]}>
+                      {c.neDolazi}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
+        </View>
 
         <Pressable
           testID="btn-reset"
@@ -371,6 +569,73 @@ const useStyles = makeStyles((colors) => ({
     marginBottom: spacing.xs,
   },
   emptyText: { fontSize: 13, color: colors.muted, fontWeight: "600" },
+  sectionHeadRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  barRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: 5,
+  },
+  barLabel: { width: 66, fontSize: 13, fontWeight: "700", color: colors.onSurfaceTertiary },
+  barTrack: {
+    flex: 1,
+    height: 16,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceTertiary,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: 16,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brandSecondary,
+  },
+  barFillTop: { backgroundColor: colors.brandPrimary },
+  barVal: { width: 26, textAlign: "right", fontSize: 13, fontWeight: "700", color: colors.muted },
+  barValTop: { color: colors.brandPrimary },
+  periodRow: { flexDirection: "row", gap: spacing.sm },
+  periodField: {
+    flex: 1,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  periodLabel: { fontSize: 11, fontWeight: "700", color: colors.muted, letterSpacing: 0.5 },
+  periodValue: { fontSize: 16, fontWeight: "800", color: colors.onSurface, marginTop: 2 },
+  periodBtn: {
+    marginTop: spacing.md,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: colors.brandPrimary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  periodBtnText: { color: colors.onBrandPrimary, fontSize: 15, fontWeight: "800" },
+  histRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    marginTop: spacing.sm,
+  },
+  histRowActive: { borderColor: colors.brandPrimary, borderWidth: 2 },
+  histDate: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
+  histCounts: { flexDirection: "row", gap: spacing.md },
+  histC: { fontSize: 16, fontWeight: "800", minWidth: 22, textAlign: "right" },
   repRow: {
     flexDirection: "row",
     alignItems: "center",

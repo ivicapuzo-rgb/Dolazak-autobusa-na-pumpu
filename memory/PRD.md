@@ -28,6 +28,12 @@ Operater na pumpi — brz unos napolju, veliki tap-targeti, čitljivi brojevi.
 - Izveštaj: password gate ("puzopb"), stat cards, sekcije (Stigli po vremenu, Koji fale, Ne dolaze), PDF (A4) izvoz na telefonu, reset dana, zaključaj
 - Toasts, haptics, offline persistence — tested (iteration_1, all pass)
 
+## Implemented — update 2026-06 (v2)
+- PDF auto-save u Preuzimanja (Android SAF): prvi put korisnik jednom izabere folder (npr. Download), URI se pamti, dalje se čuva automatski sa imenom `Izvestaj_DD-MM-YYYY.pdf`. iOS koristi share sheet. Web prikazuje info poruku.
+- Statistika mesta sipanja (1–8): horizontalni grafikon po danu u Izveštaju + u PDF-u; najkorišćenije mesto istaknuto.
+- Istorija po danima: lista svih dana sa evidencijom (stiglo/čeka/ne dolazi), tap postavlja izabrani dan.
+- Izvoz izveštaja za period: Od/Do datumi + PDF sa svim danima u opsegu (`Izvestaj_..._do_....pdf`).
+
 ## Backlog
 - P1: PDF izvoz koji automatski čuva fajl sa imenom (datum) u Downloads/Documents
 - P1: Dnevni pregled više dana / istorija i izvoz opsega datuma

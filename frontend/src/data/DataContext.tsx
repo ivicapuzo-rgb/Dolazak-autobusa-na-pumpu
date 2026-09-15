@@ -222,3 +222,35 @@ export function neDolazeList(
 export function cekajuList(buses: Bus[], day: Record<string, Zapis>): Bus[] {
   return buses.filter((b) => !day[b.broj]);
 }
+
+// counts[1..8] = how many arrivals used each pump spot on that day
+export function spotCounts(day: Record<string, Zapis>): number[] {
+  const counts = new Array(9).fill(0);
+  Object.values(day).forEach((z) => {
+    if (z.status === "stigao" && z.mesto && z.mesto >= 1 && z.mesto <= 8) {
+      counts[z.mesto] += 1;
+    }
+  });
+  return counts;
+}
+
+// dates (YYYY-MM-DD) that have at least one record, newest first
+export function datesWithRecords(records: RecordsByDate): string[] {
+  return Object.keys(records)
+    .filter((d) => records[d] && Object.keys(records[d]).length > 0)
+    .sort((a, b) => (a < b ? 1 : -1));
+}
+
+export function dayCounts(
+  buses: Bus[],
+  day: Record<string, Zapis>,
+): { stiglo: number; neDolazi: number; cekaSe: number } {
+  const vals = Object.values(day);
+  const stiglo = vals.filter((z) => z.status === "stigao").length;
+  const neDolazi = vals.filter((z) => z.status === "ne_dolazi").length;
+  return {
+    stiglo,
+    neDolazi,
+    cekaSe: Math.max(buses.length - stiglo - neDolazi, 0),
+  };
+}
