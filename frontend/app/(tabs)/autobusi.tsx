@@ -110,22 +110,26 @@ export default function AutobusiScreen() {
       <View style={[styles.rowDot, { backgroundColor: dotColor }]} />
       <View style={styles.rowMain}>
         <View style={styles.rowMainTop}>
-          <Text style={styles.rowBroj}>{item.bus.broj}</Text>
+          <Text style={styles.rowBroj} numberOfLines={1}>
+            {item.bus.broj}
+          </Text>
           <View style={styles.markaBadge}>
-            <Text style={styles.markaText}>{item.bus.marka}</Text>
+            <Text style={styles.markaText} numberOfLines={1}>
+              {item.bus.marka}
+            </Text>
           </View>
         </View>
-        {item.zapis?.napomena ? (
-          <Text style={styles.rowNote} numberOfLines={1}>
+        {tab === "stigli" && item.zapis ? (
+          <Text style={styles.rowMeta} numberOfLines={1}>
+            {item.zapis.vreme} / mesto {item.zapis.mesto}
+            {item.zapis.napomena ? ` • ${item.zapis.napomena}` : ""}
+          </Text>
+        ) : item.zapis?.napomena ? (
+          <Text style={styles.rowMeta} numberOfLines={1}>
             📝 {item.zapis.napomena}
           </Text>
         ) : null}
       </View>
-      {tab === "stigli" && item.zapis && (
-        <Text style={styles.rowMeta}>
-          {item.zapis.vreme} / mesto {item.zapis.mesto}
-        </Text>
-      )}
       {(tab === "stigli" || tab === "nedolaze") && (
         <Pressable
           testID={`revert-${item.bus.broj}`}
@@ -399,24 +403,25 @@ const useStyles = makeStyles((colors) => ({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
     backgroundColor: colors.surfaceSecondary,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
-  rowDot: { width: 12, height: 12, borderRadius: 999 },
-  rowMain: { flex: 1, gap: 4 },
+  rowDot: { width: 12, height: 12, borderRadius: 999, flexShrink: 0 },
+  rowMain: { flex: 1, gap: 2, minWidth: 0 },
   rowMainTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  rowBroj: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
+  rowBroj: { fontSize: 19, fontWeight: "800", color: colors.onSurface, flexShrink: 0 },
   rowNote: { fontSize: 12, fontWeight: "600", color: colors.muted },
   markaBadge: {
     backgroundColor: colors.surfaceTertiary,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
+    flexShrink: 1,
   },
   markaText: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceTertiary },
   rowMeta: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceTertiary },
@@ -424,8 +429,9 @@ const useStyles = makeStyles((colors) => ({
     borderWidth: 1,
     borderColor: colors.borderStrong,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    flexShrink: 0,
   },
   revertText: { fontSize: 12, fontWeight: "800", color: colors.onSurfaceTertiary },
   empty: { paddingTop: spacing["3xl"], alignItems: "center" },
