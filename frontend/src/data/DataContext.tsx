@@ -11,7 +11,7 @@ import React, {
 import { storage } from "@/src/utils/storage";
 
 import { SEED_BUSES } from "./seed";
-import { Bus, RecordsByDate, Status, Zapis } from "./types";
+import { Bus, Marka, RecordsByDate, Status, Zapis } from "./types";
 
 const BUSES_KEY = "pumpa_buses_v1";
 const RECORDS_KEY = "pumpa_records_v1";
@@ -35,7 +35,8 @@ interface DataCtxValue {
   records: RecordsByDate;
   dayRecords: Record<string, Zapis>;
   stats: DayStats;
-  addVanredni: (broj: string) => boolean; // false if already exists
+  addVanredni: (broj: string, marka?: Marka) => boolean; // false if already exists
+  removeBus: (broj: string) => void;
   setStatus: (
     broj: string,
     status: Status,
@@ -106,15 +107,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addVanredni = useCallback(
-    (broj: string) => {
+    (broj: string, marka: Marka = "Vanredno") => {
       const trimmed = broj.trim();
       if (!trimmed) return false;
       if (buses.some((x) => x.broj === trimmed)) return false;
-      setBuses((prev) => [...prev, { broj: trimmed, marka: "Vanredno" }]);
+      setBuses((prev) => [...prev, { broj: trimmed, marka }]);
       return true;
     },
     [buses],
   );
+
+  const removeBus = useCallback((broj: string) => {
+    setBuses((prev) => prev.filter((x) => x.broj !== broj));
+  }, []);
 
   const setStatus = useCallback(
     (
@@ -190,6 +195,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     dayRecords,
     stats,
     addVanredni,
+    removeBus,
     setStatus,
     clearStatus,
     resetDate,

@@ -1,4 +1,4 @@
-export type Marka = "Solaris" | "BMC" | "Vanredno";
+export type Marka = "Solaris" | "BMC" | "Minibus" | "Vanredno";
 
 export type Status = "stigao" | "ne_dolazi";
 

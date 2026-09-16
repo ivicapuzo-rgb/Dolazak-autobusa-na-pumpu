@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { MagnifyingGlass, Plus, X } from "phosphor-react-native";
+import { MagnifyingGlass, Plus, Trash, X } from "phosphor-react-native";
 import React, { useMemo, useState } from "react";
 import {
   FlatList,
@@ -19,7 +19,7 @@ import {
   stigliByTimeDesc,
   useData,
 } from "@/src/data/DataContext";
-import { Bus, Zapis } from "@/src/data/types";
+import { Bus, Marka, Zapis } from "@/src/data/types";
 import { usesNativeTabs } from "@/src/navigation";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -35,12 +35,14 @@ export default function AutobusiScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { buses, dayRecords, clearStatus, addVanredni } = useData();
+  const { buses, dayRecords, clearStatus, addVanredni, removeBus } = useData();
 
   const [tab, setTab] = useState<Tab>("stigli");
   const [query, setQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [newBroj, setNewBroj] = useState("");
+  const [newMarka, setNewMarka] = useState<Marka>("Solaris");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
 
@@ -84,15 +86,23 @@ export default function AutobusiScreen() {
       toast.show("Unesi garažni broj", "error");
       return;
     }
-    const ok = addVanredni(t);
+    const ok = addVanredni(t, newMarka);
     if (ok) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast.show(`Autobus ${t} dodat u popis`, "success");
+      toast.show(`${newMarka} ${t} dodat u popis`, "success");
       setNewBroj("");
       setModalOpen(false);
     } else {
       toast.show(`Autobus ${t} već postoji`, "error");
     }
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    removeBus(deleteTarget);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    toast.show(`Autobus ${deleteTarget} obrisan iz popisa`, "info");
+    setDeleteTarget(null);
   };
 
   const renderRow = ({ item }: { item: Row }) => (
@@ -130,6 +140,14 @@ export default function AutobusiScreen() {
           <Text style={styles.revertText}>Vrati</Text>
         </Pressable>
       )}
+      <Pressable
+        testID={`delete-${item.bus.broj}`}
+        onPress={() => setDeleteTarget(item.bus.broj)}
+        hitSlop={8}
+        style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.6 }]}
+      >
+        <Trash size={18} color={colors.error} weight="bold" />
+      </Pressable>
     </View>
   );
 
@@ -236,6 +254,35 @@ export default function AutobusiScreen() {
             <Text style={styles.modalHint}>
               Garažni broj koji nije na spisku. Biće u popisu kao i ostali.
             </Text>
+            <Text style={styles.markaLabel}>Marka</Text>
+            <View style={styles.markaSelectRow}>
+              {(["Solaris", "BMC", "Minibus"] as Marka[]).map((m) => {
+                const active = newMarka === m;
+                return (
+                  <Pressable
+                    key={m}
+                    testID={`marka-${m}`}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setNewMarka(m);
+                    }}
+                    style={[
+                      styles.markaSelect,
+                      active && styles.markaSelectActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.markaSelectText,
+                        active && styles.markaSelectTextActive,
+                      ]}
+                    >
+                      {m}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <TextInput
               testID="modal-input"
               style={styles.modalInput}
@@ -257,6 +304,45 @@ export default function AutobusiScreen() {
             >
               <Text style={styles.modalBtnText}>Dodaj u popis</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={deleteTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTarget(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard} testID="delete-modal">
+            <Text style={styles.modalTitle}>Obrisati iz popisa?</Text>
+            <Text style={styles.modalHint}>
+              Autobus {deleteTarget} će biti uklonjen iz popisa. Ovo ne briše
+              istoriju evidencije.
+            </Text>
+            <View style={styles.deleteActions}>
+              <Pressable
+                testID="delete-cancel"
+                onPress={() => setDeleteTarget(null)}
+                style={({ pressed }) => [
+                  styles.deleteCancel,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={styles.deleteCancelText}>Otkaži</Text>
+              </Pressable>
+              <Pressable
+                testID="delete-confirm"
+                onPress={confirmDelete}
+                style={({ pressed }) => [
+                  styles.deleteConfirm,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={styles.deleteConfirmText}>Obriši</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -399,4 +485,55 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: "center",
   },
   modalBtnText: { color: colors.onBrandPrimary, fontSize: 16, fontWeight: "800" },
+  markaLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.onSurfaceTertiary,
+    marginTop: spacing.xs,
+  },
+  markaSelectRow: { flexDirection: "row", gap: spacing.sm },
+  markaSelect: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markaSelectActive: {
+    backgroundColor: colors.brandPrimary,
+    borderColor: colors.brandPrimary,
+  },
+  markaSelectText: { fontSize: 14, fontWeight: "800", color: colors.onSurfaceTertiary },
+  markaSelectTextActive: { color: colors.onBrandPrimary },
+  deleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceTertiary,
+  },
+  deleteActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
+  deleteCancel: {
+    flex: 1,
+    height: 50,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteCancelText: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
+  deleteConfirm: {
+    flex: 1,
+    height: 50,
+    borderRadius: radius.md,
+    backgroundColor: colors.error,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteConfirmText: { fontSize: 15, fontWeight: "800", color: colors.onError },
 }));

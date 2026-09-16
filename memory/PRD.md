@@ -44,6 +44,11 @@ Operater na pumpi — brz unos napolju, veliki tap-targeti, čitljivi brojevi.
 - Nedeljni PDF: dugmad "Nedeljni PDF" (sačuvaj) i "Podeli" u sekciji Nedeljni pregled — poseban PDF sa zbirom po nedeljama, najprometnijim danima i sipanjima po danima.
 - Grafikon po danima (14 dana): stubičasti grafikon u Izveštaju koji pokazuje broj sipanja po danu, sa istaknutim najprometnijim danom i današnjim datumom.
 
+## Implemented — update 2026-06 (v5)
+- Dodaj vanredno: izbor marke pri dodavanju (Solaris / BMC / Minibus).
+- Brisanje iz popisa: dugme (korpa) na svakom redu u listi Autobusi + potvrda pre brisanja; uklanja autobus iz popisa (istorija evidencije ostaje).
+- Marka model proširen sa "Minibus".
+
 ## Backlog
 - P1: PDF izvoz koji automatski čuva fajl sa imenom (datum) u Downloads/Documents
 - P1: Dnevni pregled više dana / istorija i izvoz opsega datuma
