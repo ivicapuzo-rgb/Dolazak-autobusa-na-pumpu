@@ -9,6 +9,7 @@ import { ErrorBoundary } from "@/src/components/error-boundary";
 import { ToastProvider } from "@/src/components/Toast";
 import { DataProvider } from "@/src/data/DataContext";
 import { queryClient } from "@/src/query-client";
+import { UpdateProvider } from "@/src/update/UpdateContext";
 
 // Disable logbox errors etc so that users can see the app
 // and agent works as expected.
@@ -23,7 +24,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <DataProvider>
                 <ToastProvider>
-                  <Stack screenOptions={{ headerShown: false }} />
+                  <UpdateProvider>
+                    <Stack screenOptions={{ headerShown: false }} />
+                  </UpdateProvider>
                 </ToastProvider>
               </DataProvider>
             </KeyboardProvider>

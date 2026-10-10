@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import dayjs from "dayjs";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
+  ArrowClockwise,
   CalendarBlank,
   ChartBar,
   ClockCounterClockwise,
@@ -42,6 +43,7 @@ import {
 } from "@/src/data/DataContext";
 import { usesNativeTabs } from "@/src/navigation";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { useUpdate } from "@/src/update/UpdateContext";
 import {
   saveBusHistoryPdf,
   savePeriodPdf,
@@ -62,6 +64,7 @@ export default function IzvestajScreen() {
   const toast = useToast();
   const { buses, dayRecords, selectedDate, setSelectedDate, records, stats, resetDate } =
     useData();
+  const { currentVersion, checking, checkForUpdate } = useUpdate();
 
   const [unlocked, setUnlocked] = useState(false);
   const [pass, setPass] = useState("");
@@ -807,6 +810,35 @@ export default function IzvestajScreen() {
               )}
             </>
           )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeadRow}>
+            <ArrowClockwise size={18} color={colors.brandPrimary} weight="bold" />
+            <Text style={styles.sectionTitle}>Ažuriranje aplikacije</Text>
+          </View>
+          <Text style={styles.emptyText}>
+            Trenutna verzija: v{currentVersion}. Aplikacija sama proverava nove
+            verzije na GitHub-u.
+          </Text>
+          <Pressable
+            testID="btn-check-update"
+            onPress={() => checkForUpdate(true)}
+            disabled={checking}
+            style={({ pressed }) => [
+              styles.periodBtn,
+              (pressed || checking) && { opacity: 0.7 },
+            ]}
+          >
+            <ArrowClockwise
+              size={18}
+              color={colors.onBrandPrimary}
+              weight="bold"
+            />
+            <Text style={styles.periodBtnText}>
+              {checking ? "Proveravam…" : "Proveri ažuriranje"}
+            </Text>
+          </Pressable>
         </View>
 
         <Pressable

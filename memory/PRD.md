@@ -49,6 +49,15 @@ Operater na pumpi — brz unos napolju, veliki tap-targeti, čitljivi brojevi.
 - Brisanje iz popisa: dugme (korpa) na svakom redu u listi Autobusi + potvrda pre brisanja; uklanja autobus iz popisa (istorija evidencije ostaje).
 - Marka model proširen sa "Minibus".
 
+## Implemented — update 2026-06 (v6)
+- Auto-update preko GitHub Releases (Android, samo na instaliranom APK buildu):
+  - `src/config.ts` drži repo (ivicapuzo-rgb/Dolazak-autobusa-na-pumpu).
+  - `src/update/version.ts` semver poređenje; `src/update/UpdateContext.tsx` provajder + modal.
+  - Proverava `releases/latest` na startu i na povratku u prvi plan (throttle 30 min) + ručno dugme u Izveštaju.
+  - Ako je tag novija verzija od app.json `version`, prikaže modal sa release notes; dugme preuzima .apk asset (progress) i otvara Android installer (intent VIEW + FileProvider). Fallback: "Dozvoli instalaciju" → MANAGE_UNKNOWN_APP_SOURCES.
+  - app.json: dodat `android.permissions: ["REQUEST_INSTALL_PACKAGES"]`.
+  - NAPOMENA: ne radi u Expo Go / web-u; radi samo na realnom APK buildu. Pozadinsko obaveštenje dok je app zatvoren zahteva push (nije deo ovog rešenja).
+
 ## Backlog
 - P1: PDF izvoz koji automatski čuva fajl sa imenom (datum) u Downloads/Documents
 - P1: Dnevni pregled više dana / istorija i izvoz opsega datuma
