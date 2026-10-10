@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only verification of the update-modal infinite-loop bug fix in src/update/UpdateContext.tsx. Combined code review + live Playwright test on the Expo web preview (390x844). The GitHub repo DOES currently have a release (v1.0.4 with a 115.6 MB APK) — contrary to the context note — so the fix was testable end-to-end on web via the manual 'Proveri ažuriranje' button. All critical paths verified: (1) on fresh app load, no modal appears on web because the auto-check is guarded by Platform.OS === 'android'; (2) tapping btn-check-update manually opens the modal correctly showing v1.0.4; (3) tapping 'Kasnije' (update-later) closes the modal AND persists update_dismissed_version='1.0.4' to AsyncStorage (localStorage on web); (4) after a full page reload, the modal does NOT auto-reopen — confirming the infinite loop is gone; (5) manual re-check still re-opens the modal as designed (manual override); (6) regressions on Danas (entry inputs present) and Autobusi (Stigli/Čekaju/Ne dolaze segmented control + search + Dodaj vanredno) are intact. Code review of UpdateContext.tsx confirms there is NO code path where auto-mode re-opens the modal for an already-dismissed/installed non-mandatory version: handleLater, openPage and the post-install branch of downloadAndInstall all persist the version before setVisible(false), and checkForUpdate auto-mode only sets visible when manual || mandatory || dismissed !== tag. Mandatory updates are intentionally still shown on every auto-check — this is correct per spec. No red screens, no crashes, no pageerrors. Only pre-existing RN-web deprecation warnings (shadow*/pointerEvents) from third-party libs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "react-native-web deprecations", "issue": "Console warnings 'shadow* style props are deprecated. Use boxShadow' and 'props.pointerEvents is deprecated. Use style.pointerEvents' originate from RN/RN-web internals; informational only, no action needed."}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "No action needed for the reported bug — fix verified working on web preview. On Android device, the same persistence flow runs after startActivityAsync (install intent), so the install-launch branch will also stop re-opening the modal."
+  ],
+  "critical_code_review_comments": [
+    "UpdateContext.tsx:111 — condition `(manual || rel.mandatory || dismissed !== tag)` is correct: auto-mode never re-opens for a dismissed non-mandatory version. ✓",
+    "UpdateContext.tsx:150-153 — handleLater persists version before closing. ✓",
+    "UpdateContext.tsx:144-148 — openPage persists version before closing. ✓",
+    "UpdateContext.tsx:186-189 — after startActivityAsync the version is persisted and modal closed. The user's reported 'modal keeps re-popping after APK downloaded' is addressed here. ✓",
+    "UpdateContext.tsx:129-142 — auto-check guarded by Platform.OS === 'android' (and 30 min throttle on foreground); nothing runs on web. ✓",
+    "Minor nit: `tag` is stored as-is (e.g. '1.0.4'); comparison `dismissed !== tag` is strict equality which is fine as long as GitHub returns a stable tag_name. If a repo pushes both 'v1.0.4' and '1.0.4' tag names the dismissal would miss — low risk, informational only.",
+    "Modal.onRequestClose fires only on Android hardware back; on web pressing Escape does NOT trigger it (RN-web limitation). Not a bug; just a note for test coverage."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100% — all 9 live checks passed and code review confirms no re-open path"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public URL: process.env.EXPO_PUBLIC_BACKEND_URL. Admin password: 'puzopb'. The GitHub repo ivicapuzo-rgb/Dolazak-autobusa-na-pumpu DOES have a release (tag 1.0.4) with an APK asset, so the manual 'Proveri ažuriranje' button will open the real update modal on web as well. On web the auto-check is intentionally skipped (Platform.OS !== 'android') so no modal appears on page load. Dismissal is persisted to localStorage key 'update_dismissed_version' as a JSON-stringified string (e.g. value '\"1.0.4\"'). testIDs available on the modal: update-modal, update-version, update-size, update-notes, update-progress, update-later, update-install, update-open-settings.",
+  "rca_of_issue": "Root cause of original bug (per code history): after the APK install intent was launched, the modal state `visible` was never set to false AND no persistence of the latest tag was done. When the user returned to the app (AppState 'active'), the auto-check re-fetched the same tag, saw tag !== CURRENT_VERSION, and re-opened the modal → infinite loop until the APK actually got installed and the version bumped. Fix persists the latest tag to 'update_dismissed_version' and sets visible=false in three dismissal paths (handleLater, openPage, post-install), and checkForUpdate auto-mode now only re-opens when `manual || mandatory || dismissed !== tag`. Verified via live web run that reload after Kasnije does not re-open the modal."
+}

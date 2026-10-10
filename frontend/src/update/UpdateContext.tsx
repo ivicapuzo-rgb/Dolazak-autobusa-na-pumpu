@@ -27,8 +27,11 @@ import {
   UPDATE_CHECK_THROTTLE_MS,
 } from "@/src/config";
 import { makeStyles, radius, spacing } from "@/src/theme";
+import { storage } from "@/src/utils/storage";
 
 import { isNewerVersion } from "./version";
+
+const DISMISS_KEY = "update_dismissed_version";
 
 const CURRENT_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 const ANDROID_PACKAGE =
@@ -40,6 +43,19 @@ interface LatestRelease {
   apkUrl: string;
   pageUrl: string;
   size: number;
+  mandatory: boolean;
+}
+
+function formatBytes(n: number): string {
+  if (!n || n <= 0) return "";
+  const mb = n / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
+}
+
+// Release je obavezan ako opis sadrži [OBAVEZNO] ili [MANDATORY].
+function isMandatory(notes: string): boolean {
+  return /\[(obavezno|mandatory)\]/i.test(notes || "");
 }
 
 type Phase = "idle" | "downloading" | "error";
@@ -83,12 +99,18 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
           apkUrl: apkAsset?.browser_download_url ?? "",
           pageUrl: data.html_url ?? GITHUB_RELEASES_PAGE,
           size: apkAsset?.size ?? 0,
+          mandatory: isMandatory(data.body ?? ""),
         };
         if (tag && isNewerVersion(tag, CURRENT_VERSION)) {
           setLatest(rel);
           setPhase("idle");
           setProgress(0);
-          setVisible(true);
+          const dismissed = await storage.getItem(DISMISS_KEY, "");
+          // Auto: ne otvaraj ponovo istu verziju koju je korisnik već video
+          // (osim obaveznih). Ručna provera uvek otvara.
+          if (manual || rel.mandatory || dismissed !== tag) {
+            setVisible(true);
+          }
         } else if (manual) {
           toast.show(`Imate najnoviju verziju (v${CURRENT_VERSION})`, "info");
         }
@@ -119,8 +141,15 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const openPage = useCallback(() => {
+  const openPage = useCallback(async () => {
     if (latest?.pageUrl) Linking.openURL(latest.pageUrl);
+    if (latest?.version) await storage.setItem(DISMISS_KEY, latest.version);
+    setVisible(false);
+  }, [latest]);
+
+  const handleLater = useCallback(async () => {
+    if (latest?.version) await storage.setItem(DISMISS_KEY, latest.version);
+    setVisible(false);
   }, [latest]);
 
   const downloadAndInstall = useCallback(async () => {
@@ -154,6 +183,10 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
         type: "application/vnd.android.package-archive",
       });
       setPhase("idle");
+      // Instalacija je pokrenuta — zatvori prozor i zapamti verziju da se
+      // ne otvara ponovo pri povratku u aplikaciju.
+      if (latest.version) await storage.setItem(DISMISS_KEY, latest.version);
+      setVisible(false);
     } catch {
       setPhase("error");
     }
@@ -183,19 +216,34 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
         visible={visible}
         transparent
         animationType="fade"
-        onRequestClose={() => phase !== "downloading" && setVisible(false)}
+        onRequestClose={() => {
+          if (!latest?.mandatory && phase !== "downloading") handleLater();
+        }}
       >
         <View style={styles.backdrop}>
           <View style={styles.card} testID="update-modal">
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>NOVA VERZIJA</Text>
+            <View
+              style={[styles.badge, latest?.mandatory && styles.badgeMandatory]}
+            >
+              <Text style={styles.badgeText}>
+                {latest?.mandatory ? "OBAVEZNO AŽURIRANJE" : "NOVA VERZIJA"}
+              </Text>
             </View>
             <Text style={styles.title} testID="update-version">
               v{latest?.version?.replace(/^v/i, "")}
             </Text>
-            <Text style={styles.sub}>
-              Trenutna verzija: v{CURRENT_VERSION}
-            </Text>
+            <Text style={styles.sub}>Trenutna verzija: v{CURRENT_VERSION}</Text>
+            {latest?.size ? (
+              <Text style={styles.sub} testID="update-size">
+                Za preuzimanje: {formatBytes(latest.size)}
+              </Text>
+            ) : null}
+            {latest?.mandatory ? (
+              <Text style={styles.mandatoryNote}>
+                Ovo ažuriranje je obavezno — instalirajte ga da nastavite da
+                koristite aplikaciju.
+              </Text>
+            ) : null}
 
             {latest?.notes ? (
               <ScrollView style={styles.notes} testID="update-notes">
@@ -232,17 +280,19 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
             )}
 
             <View style={styles.actions}>
-              <Pressable
-                testID="update-later"
-                disabled={phase === "downloading"}
-                onPress={() => setVisible(false)}
-                style={({ pressed }) => [
-                  styles.laterBtn,
-                  (pressed || phase === "downloading") && { opacity: 0.6 },
-                ]}
-              >
-                <Text style={styles.laterText}>Kasnije</Text>
-              </Pressable>
+              {!latest?.mandatory && (
+                <Pressable
+                  testID="update-later"
+                  disabled={phase === "downloading"}
+                  onPress={handleLater}
+                  style={({ pressed }) => [
+                    styles.laterBtn,
+                    (pressed || phase === "downloading") && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={styles.laterText}>Kasnije</Text>
+                </Pressable>
+              )}
               <Pressable
                 testID="update-install"
                 disabled={phase === "downloading"}
@@ -299,6 +349,13 @@ const useStyles = makeStyles((colors) => ({
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.5,
+  },
+  badgeMandatory: { backgroundColor: colors.error },
+  mandatoryNote: {
+    marginTop: spacing.sm,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.error,
   },
   title: { fontSize: 28, fontWeight: "800", color: colors.onSurface },
   sub: { fontSize: 13, color: colors.muted, fontWeight: "600" },

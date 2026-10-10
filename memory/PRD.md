@@ -58,6 +58,18 @@ Operater na pumpi — brz unos napolju, veliki tap-targeti, čitljivi brojevi.
   - app.json: dodat `android.permissions: ["REQUEST_INSTALL_PACKAGES"]`.
   - NAPOMENA: ne radi u Expo Go / web-u; radi samo na realnom APK buildu. Pozadinsko obaveštenje dok je app zatvoren zahteva push (nije deo ovog rešenja).
 
+## Implemented — update 2026-06 (v7)
+- Auto-bump verzije: `version.json` + dinamički `app.config.js` (android `versionCode` i iOS `buildNumber` se auto-izračunavaju iz verzije). `yarn bump` podiže patch i ispisuje tag za GitHub release.
+- Veličina APK-a: update modal prikazuje "Za preuzimanje: X MB" iz GitHub asset-a.
+- Obavezno ažuriranje: ako release opis sadrži `[OBAVEZNO]` (ili `[MANDATORY]`), modal nema „Kasnije" i ne može se zatvoriti.
+- Push obaveštenje (Emergent managed / SuprSend):
+  - Backend `server.py`: `POST /api/register-push` (relay + upsert user_id u `push_users`), `send_push()` helper, i `_release_poller()` koji na 10 min proverava GitHub `releases/latest` i, kad se tag promeni, šalje push svim uređajima; `app_meta.last_tag` pamti poslednji viđeni release. `EMERGENT_PUSH_KEY=placeholder` (postavlja se u deploy-u). `httpx` dodat u requirements.
+  - Frontend: `src/push/registerForPush.ts` (getDevicePushTokenAsync), `_layout.tsx` module-scope handler + android kanal, warm/cold tap handleri, registracija na startu, weekly nudge modal (Linking.openSettings). `expo-notifications` plugin dodat; `google-services.json` se uslovno uvezuje u `app.config.js`.
+  - ZAHTEVA: korisnik dostavlja `google-services.json` (Firebase) i generiše build; ne radi u Expo Go/web-u.
+
+## Bug fix — 2026-06 (v7.1)
+- Rešeno: update modal nije nestajao i stalno je iskakao posle preuzimanja. Sada se posle pokretanja instalacije (i na „Kasnije"/back) pamti prikazana verzija u `update_dismissed_version`; auto-provera otvara modal samo ako je verzija nova ILI obavezna; ručna provera uvek otvara. Potvrđeno od testing agenta (iteration_2, prošlo, bez regresija).
+
 ## Backlog
 - P1: PDF izvoz koji automatski čuva fajl sa imenom (datum) u Downloads/Documents
 - P1: Dnevni pregled više dana / istorija i izvoz opsega datuma
